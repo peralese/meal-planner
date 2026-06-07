@@ -56,8 +56,16 @@ export default function MealModal({ day, meal, weekStart, onSave, onClose, showT
       if (data.error) { showToast(data.error, 'error'); return; }
       if (data.meal_name && !form.meal_name) setForm(f => ({ ...f, meal_name: data.meal_name }));
       if (data.servings) setForm(f => ({ ...f, servings: data.servings }));
-      if (data.ingredients?.length) setIngredients(data.ingredients.map(i => ({ ...i, calories_per_serving: null, protein_g: null, carbs_g: null, fat_g: null })));
-      showToast('Recipe fetched!');
+      const fresh = data.ingredients?.length
+        ? data.ingredients.map(i => ({ ...i, calories_per_serving: null, protein_g: null, carbs_g: null, fat_g: null }))
+        : [];
+      if (fresh.length) {
+        setIngredients(fresh);
+        showToast('Recipe fetched — looking up nutrition…');
+        await handleLookupNutrition(fresh);
+      } else {
+        showToast('Recipe fetched!');
+      }
     } catch {
       showToast('Failed to fetch recipe', 'error');
     } finally {
@@ -86,27 +94,36 @@ export default function MealModal({ day, meal, weekStart, onSave, onClose, showT
     }
   };
 
-  const applyVisionPreview = () => {
+  const applyVisionPreview = async () => {
     if (!visionPreview) return;
     if (visionPreview.meal_name && !form.meal_name) setForm(f => ({ ...f, meal_name: visionPreview.meal_name }));
     if (visionPreview.servings) setForm(f => ({ ...f, servings: visionPreview.servings }));
-    if (visionPreview.ingredients?.length) setIngredients(visionPreview.ingredients.map(i => ({ ...i, calories_per_serving: null, protein_g: null, carbs_g: null, fat_g: null })));
-    setVisionPreview(null);
-    showToast('Recipe applied');
+    const fresh = visionPreview.ingredients?.length
+      ? visionPreview.ingredients.map(i => ({ ...i, calories_per_serving: null, protein_g: null, carbs_g: null, fat_g: null }))
+      : [];
+    if (fresh.length) {
+      setIngredients(fresh);
+      setVisionPreview(null);
+      showToast('Recipe applied — looking up nutrition…');
+      await handleLookupNutrition(fresh);
+    } else {
+      setVisionPreview(null);
+      showToast('Recipe applied');
+    }
   };
 
-  const handleLookupNutrition = async () => {
-    if (!ingredients.length) return;
+  const handleLookupNutrition = async (ingredientList = ingredients) => {
+    if (!ingredientList.length) return;
     setNutritionLoading(true);
     try {
       const res = await fetch(`${API}/nutrition/lookup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients }),
+        body: JSON.stringify({ ingredients: ingredientList }),
       });
       const data = await res.json();
       if (data.error) { showToast(data.error, 'error'); return; }
-      const enriched = ingredients.map(ing => {
+      const enriched = ingredientList.map(ing => {
         const match = data.find(d => d.name.toLowerCase() === ing.name.toLowerCase());
         return match ? { ...ing, ...match } : ing;
       });

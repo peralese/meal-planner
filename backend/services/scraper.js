@@ -103,7 +103,7 @@ export async function scrapeRecipe(url) {
     let headingIngredients = [];
     $('h1,h2,h3,h4,strong,b').each((_, el) => {
       if (headingIngredients.length) return;
-      if (/^ingredients$/i.test($(el).text().trim())) {
+      if (/ingredients/i.test($(el).text())) {
         // Try next sibling list, then parent's next sibling list
         const candidates = [
           $(el).nextAll('ul,ol').first(),

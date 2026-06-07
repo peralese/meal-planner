@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const USDA_BASE = process.env.USDA_API_BASE || 'https://api.nal.usda.gov/fdc/v1';
+const USDA_API_KEY = process.env.USDA_API_KEY || 'DEMO_KEY';
 
 const NUTRIENT_IDS = {
   calories: 1008,
@@ -19,7 +20,7 @@ function delay(ms) {
 async function lookupOne(ingredientName) {
   try {
     const { data } = await axios.get(`${USDA_BASE}/foods/search`, {
-      params: { query: ingredientName, pageSize: 1 },
+      params: { query: ingredientName, pageSize: 1, api_key: USDA_API_KEY },
       timeout: 10000,
     });
 

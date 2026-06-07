@@ -15,7 +15,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const { week_id, day_of_week, meal_name, recipe_url, notes, servings } = req.body;
+  const { week_id, day_of_week, meal_name, recipe_url, notes, servings, ingredients } = req.body;
   if (!week_id || day_of_week === undefined || !meal_name) {
     return res.status(400).json({ error: 'week_id, day_of_week, and meal_name are required' });
   }
@@ -23,8 +23,32 @@ router.post('/', (req, res) => {
     `INSERT INTO meals (week_id, day_of_week, meal_name, recipe_url, notes, servings)
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(week_id, day_of_week, meal_name, recipe_url || null, notes || null, servings || 4);
-  const meal = db.prepare('SELECT * FROM meals WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json({ ...meal, ingredients: [] });
+
+  const mealId = result.lastInsertRowid;
+
+  if (Array.isArray(ingredients) && ingredients.length) {
+    const insertIngredient = db.prepare(
+      `INSERT INTO ingredients (meal_id, name, quantity, unit, usda_fdc_id, calories_per_serving, protein_g, carbs_g, fat_g)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const ing of ingredients) {
+      insertIngredient.run(
+        mealId,
+        ing.name,
+        ing.quantity || null,
+        ing.unit || null,
+        ing.usda_fdc_id || null,
+        ing.calories_per_serving || null,
+        ing.protein_g || null,
+        ing.carbs_g || null,
+        ing.fat_g || null
+      );
+    }
+  }
+
+  const meal = db.prepare('SELECT * FROM meals WHERE id = ?').get(mealId);
+  const savedIngredients = db.prepare('SELECT * FROM ingredients WHERE meal_id = ?').all(mealId);
+  res.status(201).json({ ...meal, ingredients: savedIngredients });
 });
 
 router.put('/:id', (req, res) => {

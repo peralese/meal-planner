@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    allowedHosts: ['meal-planner.home.peraleslab.com'],
     proxy: {
       '/api': {
         target: 'http://localhost:3005',
