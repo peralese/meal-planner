@@ -9,8 +9,12 @@ router.post('/lookup', async (req, res) => {
   if (!Array.isArray(ingredients) || ingredients.length === 0) {
     return res.status(400).json({ error: 'ingredients array is required' });
   }
-  const results = await lookupNutrition(ingredients);
-  res.json(results);
+  try {
+    const results = await lookupNutrition(ingredients);
+    res.json(results);
+  } catch (err) {
+    res.status(429).json({ error: err.message });
+  }
 });
 
 router.get('/meal/:meal_id', (req, res) => {

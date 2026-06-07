@@ -46,6 +46,16 @@ db.exec(`
     carbs_g REAL,
     fat_g REAL
   );
+
+  CREATE TABLE IF NOT EXISTS nutrition_cache (
+    name TEXT PRIMARY KEY,
+    usda_fdc_id INTEGER,
+    calories_per_serving REAL,
+    protein_g REAL,
+    carbs_g REAL,
+    fat_g REAL,
+    cached_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 export default db;

@@ -127,8 +127,13 @@ export default function MealModal({ day, meal, weekStart, onSave, onClose, showT
         const match = data.find(d => d.name.toLowerCase() === ing.name.toLowerCase());
         return match ? { ...ing, ...match } : ing;
       });
+      const hasAnyData = enriched.some(i => i.calories_per_serving != null);
       setIngredients(enriched);
-      showToast('Nutrition data loaded');
+      if (hasAnyData) {
+        showToast('Nutrition data loaded');
+      } else {
+        showToast('Nutrition unavailable — USDA rate limit reached. Add your API key to .env', 'error');
+      }
     } catch {
       showToast('Nutrition lookup failed', 'error');
     } finally {
