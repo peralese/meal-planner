@@ -15,10 +15,10 @@ function formatWeekOf(weekStart) {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function buildPlainText(grouped, weekStart) {
+function buildPlainText(grouped, weekStart, removed) {
   const lines = [`Shopping List — Week of ${formatWeekOf(weekStart)}`, ''];
   for (const [cat, meta] of Object.entries(CATEGORY_META)) {
-    const items = grouped[cat] || [];
+    const items = (grouped[cat] || []).filter((_, i) => !removed.has(`${cat}-${i}`));
     if (!items.length) continue;
     lines.push(meta.label.toUpperCase());
     for (const item of items) {
@@ -34,6 +34,7 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
   const [grouped, setGrouped] = useState(null);
   const [loading, setLoading] = useState(true);
   const [checked, setChecked] = useState({});
+  const [removed, setRemoved] = useState(new Set());
 
   useEffect(() => {
     setLoading(true);
@@ -43,11 +44,13 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
       .catch(() => { showToast('Failed to load shopping list', 'error'); setLoading(false); });
   }, [weekId]);
 
-  const totalItems = grouped ? Object.values(grouped).reduce((s, arr) => s + arr.length, 0) : 0;
+  const totalItems = grouped
+    ? Object.entries(grouped).reduce((s, [cat, arr]) => s + arr.filter((_, i) => !removed.has(`${cat}-${i}`)).length, 0)
+    : 0;
 
   const copyToClipboard = async () => {
     if (!grouped) return;
-    const text = buildPlainText(grouped, weekStart);
+    const text = buildPlainText(grouped, weekStart, removed);
     try {
       await navigator.clipboard.writeText(text);
       showToast('Copied to clipboard!');
@@ -59,6 +62,7 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
   const handlePrint = () => window.print();
 
   const toggleItem = (key) => setChecked(prev => ({ ...prev, [key]: !prev[key] }));
+  const removeItem = (key) => setRemoved(prev => new Set([...prev, key]));
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Loading shopping list…</div>;
 
@@ -105,6 +109,7 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {items.map((item, i) => {
                 const key = `${cat}-${i}`;
+                if (removed.has(key)) return null;
                 const isChecked = checked[key];
                 const qty = [item.quantity, item.unit].filter(Boolean).join(' ');
                 return (
@@ -142,6 +147,23 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
                         {item.meals.slice(0, 2).join(', ')}{item.meals.length > 2 ? ` +${item.meals.length - 2}` : ''}
                       </span>
                     )}
+                    <button
+                      onClick={(e) => { e.preventDefault(); removeItem(key); }}
+                      title="Remove from list"
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--text-muted)',
+                        fontSize: 16,
+                        lineHeight: 1,
+                        padding: '0 2px',
+                        borderRadius: 4,
+                        opacity: 0.5,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                      onMouseLeave={e => e.currentTarget.style.opacity = 0.5}
+                    >×</button>
                   </label>
                 );
               })}
