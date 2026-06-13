@@ -54,10 +54,21 @@ Edit `backend/.env` to change defaults:
 
 ```
 PORT=3005
+DB_PATH=./data/mealplanner.db
+
+# Image extraction: "openai" or "ollama"
+VISION_PROVIDER=openai
+
+# OpenAI image extraction
+OPENAI_API_KEY=your_api_key_here
+OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_VISION_MODEL=gpt-4o-mini
+
+# Ollama image extraction fallback
 OLLAMA_BASE_URL=http://localhost:11434
 VISION_MODEL=llava:13b
+
 USDA_API_BASE=https://api.nal.usda.gov/fdc/v1
-DB_PATH=./data/mealplanner.db
 ```
 
 ## Notes

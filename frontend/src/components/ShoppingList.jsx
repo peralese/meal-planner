@@ -30,6 +30,30 @@ function buildPlainText(grouped, weekStart, removed) {
   return lines.join('\n').trim();
 }
 
+async function copyText(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-1000px';
+  textarea.style.left = '-1000px';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    const copied = document.execCommand('copy');
+    if (!copied) throw new Error('Copy command was rejected');
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
 export default function ShoppingList({ weekId, weekStart, showToast }) {
   const [grouped, setGrouped] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +76,7 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
     if (!grouped) return;
     const text = buildPlainText(grouped, weekStart, removed);
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       showToast('Copied to clipboard!');
     } catch {
       showToast('Copy failed — try selecting and copying manually', 'error');

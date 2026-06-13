@@ -16,7 +16,7 @@ router.post('/scrape', async (req, res) => {
 
 router.post('/vision', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'image file is required' });
-  const result = await extractFromImage(req.file.buffer);
+  const result = await extractFromImage(req.file.buffer, req.file.mimetype);
   if (result.error) return res.status(422).json(result);
   res.json(result);
 });
