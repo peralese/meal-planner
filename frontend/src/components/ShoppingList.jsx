@@ -166,11 +166,6 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
                       {qty && <strong style={{ marginRight: 4 }}>{qty}</strong>}
                       {item.name}
                     </span>
-                    {item.meals?.length > 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                        {item.meals.slice(0, 2).join(', ')}{item.meals.length > 2 ? ` +${item.meals.length - 2}` : ''}
-                      </span>
-                    )}
                     <button
                       onClick={(e) => { e.preventDefault(); removeItem(key); }}
                       title="Remove from list"
