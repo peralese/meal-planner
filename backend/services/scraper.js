@@ -34,9 +34,22 @@ export function getBestTitle($, refEl) {
   if (refEl) {
     try {
       const $ref = $(refEl);
-      const recipeContainer = $ref.closest('article,[class*="recipe"],[class*="post"],[id*="recipe"],[id*="post"]');
-      const headingInContainer = recipeContainer.find('h1,h2').first().text().trim();
-      if (headingInContainer) return headingInContainer;
+      const recipeContainers = $ref
+        .parents('article,[class*="recipe"],[class*="post"],[id*="recipe"],[id*="post"]')
+        .toArray();
+
+      // A nested wrapper such as `.recipe-section` may be the ingredients
+      // section itself. Skip its structural heading and keep walking outward
+      // until we find a heading that can actually name the recipe.
+      const sectionLabels = /^(ingredients|directions|instructions|method|remarks|yield|source|recipe info|categories|popular tags)\b/i;
+      for (const container of recipeContainers) {
+        const headings = $(container).find('h1,h2').toArray();
+        const titleHeading = headings.find((heading) => {
+          const text = $(heading).text().trim().replace(/^[^\p{L}\p{N}]+/u, '');
+          return text && !sectionLabels.test(text);
+        });
+        if (titleHeading) return $(titleHeading).text().trim();
+      }
 
       // Prefer the last H1 before the ingredients. A broad <main> often also
       // contains a site-wide hero H1 before the actual recipe title.
