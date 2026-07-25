@@ -28,6 +28,37 @@ function findRecipeInLd(data) {
   return null;
 }
 
+function getBestTitle($, refEl) {
+  const metaOg = $('meta[property="og:title"]').attr('content') || $('meta[name="twitter:title"]').attr('content');
+
+  if (refEl) {
+    try {
+      const $ref = $(refEl);
+      const container = $ref.closest('article,section,main,[class*="recipe"],[class*="post"],[id*="recipe"],[id*="post"]');
+      const headingInContainer = container.find('h1,h2').first().text().trim();
+      if (headingInContainer) return headingInContainer;
+
+      const prevHeading = $ref.prevAll('h1,h2,h3').first().text().trim();
+      if (prevHeading) return prevHeading;
+
+      let parent = $ref.parent();
+      for (let i = 0; i < 6 && parent && parent.length; i += 1) {
+        const h = parent.find('h1,h2').first().text().trim();
+        if (h) return h;
+        parent = parent.parent();
+      }
+    } catch (e) {
+      // ignore and fall through to other heuristics
+    }
+  }
+
+  const firstH1 = $('h1').first().text().trim();
+  if (firstH1) return firstH1;
+  if (metaOg) return metaOg.trim();
+  const titleTag = $('title').text().trim();
+  return titleTag || null;
+}
+
 function parseServings(yield_) {
   if (!yield_) return null;
   if (typeof yield_ === 'number') return yield_;
@@ -88,9 +119,9 @@ export async function scrapeRecipe(url) {
         .filter(t => t.length > 0)
         .map(parseIngredientString);
 
-      const titleEl = $('h1').first().text().trim() || $('title').text().trim();
+        const mealName = getBestTitle($, ingredientEls[0]);
       return {
-        meal_name: titleEl || null,
+          meal_name: mealName || null,
         ingredients,
         instructions: null,
         servings: null,
@@ -101,6 +132,7 @@ export async function scrapeRecipe(url) {
 
     // Fallback 2: find any element whose text contains "Ingredients" and grab the next list
     let headingIngredients = [];
+    let firstHeadingLiEl = null;
     $('h1,h2,h3,h4,strong,b').each((_, el) => {
       if (headingIngredients.length) return;
       if (/ingredients/i.test($(el).text())) {
@@ -112,6 +144,7 @@ export async function scrapeRecipe(url) {
         ];
         for (const list of candidates) {
           list.find('li').each((_, li) => {
+            if (!firstHeadingLiEl) firstHeadingLiEl = li;
             const text = $(li).text().trim();
             if (text) headingIngredients.push(parseIngredientString(text));
           });
@@ -121,9 +154,9 @@ export async function scrapeRecipe(url) {
     });
 
     if (headingIngredients.length) {
-      const titleEl = $('h1').first().text().trim() || $('title').text().trim();
+      const mealName = getBestTitle($, firstHeadingLiEl);
       return {
-        meal_name: titleEl || null,
+        meal_name: mealName || null,
         ingredients: headingIngredients,
         instructions: null,
         servings: null,
