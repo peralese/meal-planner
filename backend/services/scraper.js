@@ -1,17 +1,99 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
-function parseIngredientString(str) {
-  // Match patterns like "2 cups flour", "1/2 tsp salt", "3 large eggs"
-  const match = str.match(/^([\d\s\/.]+)?\s*([a-zA-Z]+(?:\s+[a-zA-Z]+)?)?\s+(.+)$/);
-  if (match) {
+const UNICODE_FRACTIONS = '¼½¾⅐⅑⅒⅓⅔⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞';
+const MEASUREMENT_UNITS = new Set([
+  'cup', 'cups',
+  'tablespoon', 'tablespoons', 'tbsp', 'tbsps', 'tbsp.',
+  'teaspoon', 'teaspoons', 'tsp', 'tsps', 'tsp.',
+  'pound', 'pounds', 'lb', 'lbs', 'lb.',
+  'ounce', 'ounces', 'oz', 'oz.',
+  'fluid ounce', 'fluid ounces', 'fl oz', 'fl. oz.',
+  'gram', 'grams', 'g',
+  'kilogram', 'kilograms', 'kg',
+  'milligram', 'milligrams', 'mg',
+  'milliliter', 'milliliters', 'millilitre', 'millilitres', 'ml',
+  'liter', 'liters', 'litre', 'litres', 'l',
+  'pinch', 'pinches', 'dash', 'dashes',
+]);
+
+function extractUnit(text) {
+  // Check two-word measurements before their one-word variants.
+  const words = text.split(/\s+/);
+  for (const length of [2, 1]) {
+    const candidate = words.slice(0, length).join(' ').toLowerCase();
+    if (MEASUREMENT_UNITS.has(candidate)) {
+      return {
+        unit: words.slice(0, length).join(' '),
+        name: words.slice(length).join(' ').trim(),
+      };
+    }
+  }
+  return { unit: null, name: text.trim() };
+}
+
+export function parseIngredientString(str) {
+  // HTML ingredient rows often contain indentation and line breaks between
+  // amount, unit, and name spans. Treat all runs of whitespace as one space.
+  const text = String(str || '').trim().replace(/\s+/g, ' ');
+  if (!text) return { quantity: null, unit: null, name: '' };
+
+  // Match integers, decimals, ASCII fractions, Unicode fractions, and mixed
+  // quantities such as "1 1/2" or "1½".
+  const quantityPattern = new RegExp(
+    `^(\\d+(?:\\.\\d+)?(?:\\s+\\d+\\/\\d+|\\s*[${UNICODE_FRACTIONS}])?|\\d+\\/\\d+|[${UNICODE_FRACTIONS}])\\s+(.+)$`,
+  );
+  const quantityMatch = text.match(quantityPattern);
+
+  if (quantityMatch) {
+    const { unit, name } = extractUnit(quantityMatch[2]);
     return {
-      quantity: match[1]?.trim() || null,
-      unit: match[2]?.trim() || null,
-      name: match[3]?.trim() || str.trim(),
+      quantity: quantityMatch[1].trim(),
+      unit,
+      name: name || quantityMatch[2].trim(),
     };
   }
-  return { quantity: null, unit: null, name: str.trim() };
+
+  // Natural recipe measures such as "a dash of cloves".
+  const articleMeasure = text.match(/^(?:a|an)\s+(dash|pinch)\s+(?:of\s+)?(.+)$/i);
+  if (articleMeasure) {
+    return {
+      quantity: '1',
+      unit: articleMeasure[1],
+      name: articleMeasure[2].trim(),
+    };
+  }
+
+  return { quantity: null, unit: null, name: text };
+}
+
+export function extractWprmRecipe($) {
+  const rows = $('li.wprm-recipe-ingredient').toArray();
+  if (!rows.length) return null;
+
+  const ingredients = rows.map((row) => {
+    const $row = $(row);
+    const quantity = $row.find('.wprm-recipe-ingredient-amount').first().text().trim();
+    const unit = $row.find('.wprm-recipe-ingredient-unit').first().text().trim();
+    const ingredientName = $row.find('.wprm-recipe-ingredient-name').first().text().trim();
+    const notes = $row.find('.wprm-recipe-ingredient-notes').first().text().trim();
+
+    return {
+      quantity: quantity || null,
+      unit: unit || null,
+      name: notes ? `${ingredientName}, ${notes}` : ingredientName,
+    };
+  }).filter(ingredient => ingredient.name);
+
+  const servingsText = $('span.wprm-recipe-servings').first().text().trim()
+    || $('[data-servings]').first().attr('data-servings')
+    || $('#wprm-print-servings').attr('value');
+
+  return {
+    ingredients,
+    servings: parseServings(servingsText),
+    referenceElement: rows[0],
+  };
 }
 
 function findRecipeInLd(data) {
@@ -129,6 +211,20 @@ export async function scrapeRecipe(url) {
           : recipe.recipeInstructions || null,
         servings: parseServings(recipe.recipeYield),
         nutrition,
+        source: 'scrape',
+      };
+    }
+
+    // WordPress Recipe Maker exposes explicit amount, unit, name, and notes
+    // fields. Use those instead of flattening the row into ambiguous text.
+    const wprmRecipe = extractWprmRecipe($);
+    if (wprmRecipe?.ingredients.length) {
+      return {
+        meal_name: getBestTitle($, wprmRecipe.referenceElement),
+        ingredients: wprmRecipe.ingredients,
+        instructions: null,
+        servings: wprmRecipe.servings,
+        nutrition: null,
         source: 'scrape',
       };
     }
