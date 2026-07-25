@@ -28,22 +28,31 @@ function findRecipeInLd(data) {
   return null;
 }
 
-function getBestTitle($, refEl) {
+export function getBestTitle($, refEl) {
   const metaOg = $('meta[property="og:title"]').attr('content') || $('meta[name="twitter:title"]').attr('content');
 
   if (refEl) {
     try {
       const $ref = $(refEl);
-      const container = $ref.closest('article,section,main,[class*="recipe"],[class*="post"],[id*="recipe"],[id*="post"]');
-      const headingInContainer = container.find('h1,h2').first().text().trim();
+      const recipeContainer = $ref.closest('article,[class*="recipe"],[class*="post"],[id*="recipe"],[id*="post"]');
+      const headingInContainer = recipeContainer.find('h1,h2').first().text().trim();
       if (headingInContainer) return headingInContainer;
+
+      // Prefer the last H1 before the ingredients. A broad <main> often also
+      // contains a site-wide hero H1 before the actual recipe title.
+      const refIndex = $('*').index(refEl);
+      const precedingH1 = $('h1').toArray()
+        .filter(el => $('*').index(el) < refIndex)
+        .at(-1);
+      const precedingH1Text = precedingH1 ? $(precedingH1).text().trim() : '';
+      if (precedingH1Text) return precedingH1Text;
 
       const prevHeading = $ref.prevAll('h1,h2,h3').first().text().trim();
       if (prevHeading) return prevHeading;
 
       let parent = $ref.parent();
       for (let i = 0; i < 6 && parent && parent.length; i += 1) {
-        const h = parent.find('h1,h2').first().text().trim();
+        const h = parent.find('h1,h2').last().text().trim();
         if (h) return h;
         parent = parent.parent();
       }
