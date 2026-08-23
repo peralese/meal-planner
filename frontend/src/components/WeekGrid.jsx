@@ -13,7 +13,7 @@ function formatDate(d) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function WeekGrid({ weekStart, meals, onOpenModal, onDeleteMeal }) {
+export default function WeekGrid({ weekStart, meals, onOpenModal, onDeleteMeal, onToggleComplete, onCopyToNextWeek }) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -63,6 +63,8 @@ export default function WeekGrid({ weekStart, meals, onOpenModal, onDeleteMeal }
                 meal={meal}
                 onEdit={() => onOpenModal(i, meal)}
                 onDelete={() => onDeleteMeal(meal.id)}
+                onToggleComplete={completed => onToggleComplete(meal.id, completed)}
+                onCopyToNextWeek={() => onCopyToNextWeek(meal)}
               />
             ) : (
               <button

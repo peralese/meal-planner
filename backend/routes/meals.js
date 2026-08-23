@@ -52,18 +52,19 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
-  const { meal_name, recipe_url, notes, servings, ingredients } = req.body;
+  const { meal_name, recipe_url, notes, servings, completed, ingredients } = req.body;
   const meal = db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id);
   if (!meal) return res.status(404).json({ error: 'Meal not found' });
 
   db.prepare(
-    `UPDATE meals SET meal_name = ?, recipe_url = ?, notes = ?, servings = ?, updated_at = datetime('now')
+    `UPDATE meals SET meal_name = ?, recipe_url = ?, notes = ?, servings = ?, completed = ?, updated_at = datetime('now')
      WHERE id = ?`
   ).run(
     meal_name ?? meal.meal_name,
     recipe_url !== undefined ? recipe_url : meal.recipe_url,
     notes !== undefined ? notes : meal.notes,
     servings ?? meal.servings,
+    completed !== undefined ? (completed ? 1 : 0) : meal.completed,
     req.params.id
   );
 
@@ -91,6 +92,49 @@ router.put('/:id', (req, res) => {
   const updated = db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id);
   const updatedIngredients = db.prepare('SELECT * FROM ingredients WHERE meal_id = ?').all(req.params.id);
   res.json({ ...updated, ingredients: updatedIngredients });
+});
+
+router.post('/:id/copy', (req, res) => {
+  const { week_id, day_of_week } = req.body;
+  if (!week_id || day_of_week === undefined) {
+    return res.status(400).json({ error: 'week_id and day_of_week are required' });
+  }
+  const meal = db.prepare('SELECT * FROM meals WHERE id = ?').get(req.params.id);
+  if (!meal) return res.status(404).json({ error: 'Meal not found' });
+
+  const existing = db.prepare('SELECT id FROM meals WHERE week_id = ? AND day_of_week = ?').get(week_id, day_of_week);
+  if (existing) return res.status(409).json({ error: 'That day already has a meal planned' });
+
+  const result = db.prepare(
+    `INSERT INTO meals (week_id, day_of_week, meal_name, recipe_url, notes, servings)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(week_id, day_of_week, meal.meal_name, meal.recipe_url, meal.notes, meal.servings);
+
+  const newMealId = result.lastInsertRowid;
+  const ingredients = db.prepare('SELECT * FROM ingredients WHERE meal_id = ?').all(meal.id);
+  if (ingredients.length) {
+    const insertIngredient = db.prepare(
+      `INSERT INTO ingredients (meal_id, name, quantity, unit, usda_fdc_id, calories_per_serving, protein_g, carbs_g, fat_g)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const ing of ingredients) {
+      insertIngredient.run(
+        newMealId,
+        ing.name,
+        ing.quantity,
+        ing.unit,
+        ing.usda_fdc_id,
+        ing.calories_per_serving,
+        ing.protein_g,
+        ing.carbs_g,
+        ing.fat_g
+      );
+    }
+  }
+
+  const newMeal = db.prepare('SELECT * FROM meals WHERE id = ?').get(newMealId);
+  const newIngredients = db.prepare('SELECT * FROM ingredients WHERE meal_id = ?').all(newMealId);
+  res.status(201).json({ ...newMeal, ingredients: newIngredients });
 });
 
 router.delete('/:id', (req, res) => {

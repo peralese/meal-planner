@@ -42,6 +42,8 @@ The Vite dev server binds to `0.0.0.0` so it's reachable from any device on the 
 ## Features
 
 - **Week Planner** — Sun–Sat grid, navigate between weeks, add/edit/delete meals
+- **Mark Meals Made** — Check off a meal once you've cooked it; shows as struck-through/dimmed
+- **Copy to Next Week** — Copy a planned meal (with ingredients) to an open day next week without deleting it from the current week
 - **Recipe Fetching** — Paste a recipe URL and click "Fetch Recipe" to auto-extract ingredients via JSON-LD scraping
 - **Image Extraction** — Upload a photo of a recipe (cookbook, screenshot) → Ollama vision model extracts ingredients with human review before applying
 - **Nutrition Lookup** — Per-meal USDA FoodData Central lookup; caches results in SQLite

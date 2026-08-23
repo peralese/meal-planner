@@ -30,6 +30,7 @@ db.exec(`
     recipe_url TEXT,
     notes TEXT,
     servings INTEGER DEFAULT 4,
+    completed INTEGER NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -57,5 +58,10 @@ db.exec(`
     cached_at TEXT DEFAULT (datetime('now'))
   );
 `);
+
+const mealColumns = db.prepare('PRAGMA table_info(meals)').all().map(c => c.name);
+if (!mealColumns.includes('completed')) {
+  db.exec('ALTER TABLE meals ADD COLUMN completed INTEGER NOT NULL DEFAULT 0');
+}
 
 export default db;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import WeekGrid from './components/WeekGrid.jsx';
 import MealModal from './components/MealModal.jsx';
+import CopyMealModal from './components/CopyMealModal.jsx';
 import ShoppingList from './components/ShoppingList.jsx';
 import NutritionPanel from './components/NutritionPanel.jsx';
 import Toast from './components/Toast.jsx';
@@ -23,6 +24,7 @@ export default function App() {
   const [meals, setMeals] = useState([]);
   const [activeTab, setActiveTab] = useState('planner');
   const [modalState, setModalState] = useState(null); // { day, meal | null }
+  const [copyState, setCopyState] = useState(null); // { meal, nextWeek, occupiedDays }
   const [toasts, setToasts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -115,6 +117,60 @@ export default function App() {
     }
   };
 
+  const handleToggleComplete = async (mealId, completed) => {
+    setMeals(prev => prev.map(m => m.id === mealId ? { ...m, completed: completed ? 1 : 0 } : m));
+    try {
+      const res = await fetch(`${API}/meals/${mealId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed }),
+      });
+      const updated = await res.json();
+      if (updated.error) throw new Error(updated.error);
+    } catch {
+      setMeals(prev => prev.map(m => m.id === mealId ? { ...m, completed: completed ? 0 : 1 } : m));
+      showToast('Failed to update meal', 'error');
+    }
+  };
+
+  const handleOpenCopy = async (meal) => {
+    if (!currentWeek) return;
+    try {
+      const nextWeekStart = addDays(currentWeek.week_start, 7);
+      const weekRes = await fetch(`${API}/weeks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week_start: nextWeekStart }),
+      });
+      const nextWeek = await weekRes.json();
+      if (nextWeek.error) throw new Error(nextWeek.error);
+      const mealsRes = await fetch(`${API}/meals?week_id=${nextWeek.id}`);
+      const nextWeekMeals = await mealsRes.json();
+      setCopyState({ meal, nextWeek, occupiedDays: nextWeekMeals.map(m => m.day_of_week) });
+    } catch {
+      showToast('Failed to load next week', 'error');
+    }
+  };
+
+  const handleCloseCopy = () => setCopyState(null);
+
+  const handleConfirmCopy = async (day_of_week) => {
+    if (!copyState) return;
+    try {
+      const res = await fetch(`${API}/meals/${copyState.meal.id}/copy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week_id: copyState.nextWeek.id, day_of_week }),
+      });
+      const created = await res.json();
+      if (created.error) throw new Error(created.error);
+      showToast('Copied to next week');
+      handleCloseCopy();
+    } catch (err) {
+      showToast(err.message || 'Failed to copy meal', 'error');
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <header style={{
@@ -186,6 +242,8 @@ export default function App() {
             meals={meals}
             onOpenModal={handleOpenModal}
             onDeleteMeal={handleDeleteMeal}
+            onToggleComplete={handleToggleComplete}
+            onCopyToNextWeek={handleOpenCopy}
           />
         )}
         {!loading && activeTab === 'shopping' && currentWeek && (
@@ -204,6 +262,16 @@ export default function App() {
           onSave={handleSaveMeal}
           onClose={handleCloseModal}
           showToast={showToast}
+        />
+      )}
+
+      {copyState && (
+        <CopyMealModal
+          meal={copyState.meal}
+          nextWeekStart={copyState.nextWeek.week_start}
+          occupiedDays={copyState.occupiedDays}
+          onConfirm={handleConfirmCopy}
+          onClose={handleCloseCopy}
         />
       )}
 

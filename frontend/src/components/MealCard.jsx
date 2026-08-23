@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 
-export default function MealCard({ meal, onEdit, onDelete }) {
+export default function MealCard({ meal, onEdit, onDelete, onToggleComplete, onCopyToNextWeek }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const ingredientCount = meal.ingredients?.length || 0;
   const hasNutrition = meal.ingredients?.some(i => i.calories_per_serving !== null);
+  const completed = !!meal.completed;
 
   const totalCal = hasNutrition
     ? meal.ingredients.reduce((sum, i) => sum + (i.calories_per_serving || 0), 0)
@@ -21,12 +22,22 @@ export default function MealCard({ meal, onEdit, onDelete }) {
         transition: 'all 0.15s',
         position: 'relative',
         animation: 'fadeIn 0.2s ease',
+        opacity: completed ? 0.6 : 1,
       }}
       onClick={onEdit}
       onMouseEnter={e => e.currentTarget.style.boxShadow = 'var(--shadow-md)'}
       onMouseLeave={e => e.currentTarget.style.boxShadow = 'var(--shadow)'}
     >
-      <div style={{ paddingRight: 24 }}>
+      <div style={{ paddingRight: 48, display: 'flex', gap: 8 }}>
+        <input
+          type="checkbox"
+          checked={completed}
+          onChange={e => { e.stopPropagation(); onToggleComplete(!completed); }}
+          onClick={e => e.stopPropagation()}
+          title={completed ? 'Mark as not made' : 'Mark as made'}
+          style={{ marginTop: 3, width: 15, height: 15, flexShrink: 0, cursor: 'pointer', accentColor: 'var(--sage)' }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontFamily: 'Playfair Display',
           fontSize: 15,
@@ -34,6 +45,7 @@ export default function MealCard({ meal, onEdit, onDelete }) {
           color: 'var(--text)',
           lineHeight: 1.3,
           marginBottom: 6,
+          textDecoration: completed ? 'line-through' : 'none',
         }}>
           {meal.meal_name}
         </div>
@@ -100,6 +112,7 @@ export default function MealCard({ meal, onEdit, onDelete }) {
             {meal.notes}
           </p>
         )}
+        </div>
       </div>
 
       {confirmDelete ? (
@@ -127,13 +140,22 @@ export default function MealCard({ meal, onEdit, onDelete }) {
           </button>
         </div>
       ) : (
-        <button
-          style={{ ...iconBtnStyle, position: 'absolute', top: 8, right: 8 }}
-          onClick={e => { e.stopPropagation(); setConfirmDelete(true); }}
-          title="Delete meal"
-        >
-          ×
-        </button>
+        <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
+          <button
+            style={iconBtnStyle}
+            onClick={e => { e.stopPropagation(); onCopyToNextWeek(); }}
+            title="Copy to next week"
+          >
+            ⧉
+          </button>
+          <button
+            style={iconBtnStyle}
+            onClick={e => { e.stopPropagation(); setConfirmDelete(true); }}
+            title="Delete meal"
+          >
+            ×
+          </button>
+        </div>
       )}
     </div>
   );
