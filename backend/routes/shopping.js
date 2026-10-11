@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
+import { sendMail } from '../services/mailer.js';
 
 const router = Router();
 
@@ -231,6 +232,18 @@ router.get('/', (req, res) => {
   }
 
   res.json(grouped);
+});
+
+router.post('/email', async (req, res, next) => {
+  const { subject, text } = req.body || {};
+  if (!subject || !text) return res.status(400).json({ error: 'subject and text are required' });
+
+  try {
+    const info = await sendMail({ subject, text });
+    res.json({ ok: true, recipient: info.accepted?.[0] || null });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-const SHOPPING_LIST_RECIPIENT = 'skutters@gmail.com';
-
 const API = '/api';
 
 const CATEGORY_META = {
@@ -61,6 +59,7 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
   const [loading, setLoading] = useState(true);
   const [checked, setChecked] = useState({});
   const [removed, setRemoved] = useState(new Set());
+  const [emailing, setEmailing] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -85,11 +84,25 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
     }
   };
 
-  const emailShoppingList = () => {
-    if (!grouped) return;
+  const emailShoppingList = async () => {
+    if (!grouped || emailing) return;
     const subject = `[Muse] Shopping list – Week of ${formatWeekOf(weekStart)}`;
-    const body = buildPlainText(grouped, weekStart, removed);
-    window.location.href = `mailto:${SHOPPING_LIST_RECIPIENT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const text = buildPlainText(grouped, weekStart, removed);
+    setEmailing(true);
+    try {
+      const r = await fetch(`${API}/shopping/email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, text }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'Email failed');
+      showToast(data.recipient ? `Shopping list emailed to ${data.recipient}` : 'Shopping list emailed!');
+    } catch (err) {
+      showToast(`Email failed — ${err.message}`, 'error');
+    } finally {
+      setEmailing(false);
+    }
   };
 
   const handlePrint = () => window.print();
@@ -119,7 +132,7 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={handlePrint} style={btnSecondary}>🖨 Print</button>
           <button onClick={copyToClipboard} style={btnPrimary}>📋 Copy for Google Keep</button>
-          <button onClick={emailShoppingList} style={btnSecondary}>✉️ Email shopping list</button>
+          <button onClick={emailShoppingList} style={btnSecondary} disabled={emailing}>{emailing ? '✉️ Sending…' : '✉️ Email shopping list'}</button>
         </div>
       </div>
 
