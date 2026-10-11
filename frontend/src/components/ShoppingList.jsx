@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
+const SHOPPING_LIST_RECIPIENT = 'skutters@gmail.com';
+
 const API = '/api';
 
 const CATEGORY_META = {
@@ -83,6 +85,13 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
     }
   };
 
+  const emailShoppingList = () => {
+    if (!grouped) return;
+    const subject = `[Muse] Shopping list – Week of ${formatWeekOf(weekStart)}`;
+    const body = buildPlainText(grouped, weekStart, removed);
+    window.location.href = `mailto:${SHOPPING_LIST_RECIPIENT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   const handlePrint = () => window.print();
 
   const toggleItem = (key) => setChecked(prev => ({ ...prev, [key]: !prev[key] }));
@@ -110,6 +119,7 @@ export default function ShoppingList({ weekId, weekStart, showToast }) {
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={handlePrint} style={btnSecondary}>🖨 Print</button>
           <button onClick={copyToClipboard} style={btnPrimary}>📋 Copy for Google Keep</button>
+          <button onClick={emailShoppingList} style={btnSecondary}>✉️ Email shopping list</button>
         </div>
       </div>
 
